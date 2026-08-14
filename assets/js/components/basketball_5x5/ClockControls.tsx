@@ -143,6 +143,17 @@ const TimeControl = ({
   </button>
 );
 
+const isHeadCoachChallengeButtonDisabled = (
+  team: TeamState,
+  clockButtonsDisabled: boolean,
+): boolean => {
+  // Base disable condition
+  if (clockButtonsDisabled) return true;
+
+  // Disable if head coach challenge has already been used
+  return team.stats_values['head_coach_challenge'] >= 1;
+};
+
 const isTimeoutButtonDisabled = (
   team: TeamState,
   clock_state: GameClockState,
@@ -310,7 +321,10 @@ function InGameClockControls({
       <div className="column is-2">
         <HeadCoachChallengeButton
           teamType="home"
-          disabled={clockButtonsDisabled}
+          disabled={isHeadCoachChallengeButtonDisabled(
+            home_team,
+            clockButtonsDisabled,
+          )}
           pushEvent={pushEvent}
         />
       </div>
@@ -342,7 +356,10 @@ function InGameClockControls({
       <div className="column is-2">
         <HeadCoachChallengeButton
           teamType="away"
-          disabled={clockButtonsDisabled}
+          disabled={isHeadCoachChallengeButtonDisabled(
+            away_team,
+            clockButtonsDisabled,
+          )}
           pushEvent={pushEvent}
         />
       </div>
