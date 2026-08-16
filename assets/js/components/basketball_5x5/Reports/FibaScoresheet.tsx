@@ -126,6 +126,7 @@ export interface Info {
   sponsors: Sponsor[];
   game_report: string;
   web_url: string;
+  ended_periods: number[];
 }
 
 const styles = StyleSheet.create({

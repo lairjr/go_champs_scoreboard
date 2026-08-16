@@ -1586,6 +1586,12 @@
     "location": "Synthetic Location",
     "initial_period_time": 600,
     "game_report": "",
+    "ended_periods": [
+      4,
+      3,
+      2,
+      1
+    ],
     "datetime": "2026-05-10T19:00:00Z",
     "city": "Synthetic City",
     "actual_start_datetime": "2026-05-10T22:15:00Z",

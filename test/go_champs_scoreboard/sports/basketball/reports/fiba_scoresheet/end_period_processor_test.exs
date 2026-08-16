@@ -127,6 +127,8 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet.EndPeriodP
                period: 1,
                is_last_of_period: true
              }
+
+      assert result_scoresheet.info.ended_periods == [1]
     end
 
     test "marks both player and coach fouls as last_of_half for both teams when period 2 ends" do
@@ -215,6 +217,8 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet.EndPeriodP
 
       assert Enum.at(away_player_789.fouls, 0).is_last_of_half == true
       assert Enum.at(away_team.assistant_coach.fouls, 0).is_last_of_half == true
+
+      assert result_scoresheet.info.ended_periods == [2]
     end
 
     test "marks both player and coach fouls as last_of_half for both teams when period 4 ends" do
@@ -294,6 +298,8 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet.EndPeriodP
 
       assert Enum.at(away_player_789.fouls, 0).is_last_of_half == true
       assert Enum.at(away_team.coach.fouls, 0).is_last_of_half == true
+
+      assert result_scoresheet.info.ended_periods == [4]
     end
 
     test "handles teams with no player or coach fouls gracefully" do
@@ -341,6 +347,36 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet.EndPeriodP
       assert home_team.assistant_coach.fouls == []
       assert away_team.coach.fouls == []
       assert away_team.assistant_coach.fouls == []
+
+      assert result_scoresheet.info.ended_periods == [2]
+    end
+
+    test "does not duplicate a period already marked as ended" do
+      game_state = basketball_game_state_fixture()
+
+      event =
+        GoChampsScoreboard.Events.Definitions.EndPeriodDefinition.create(
+          game_state.id,
+          0,
+          1,
+          %{}
+        )
+
+      updated_game_state = GoChampsScoreboard.Events.Handler.handle(game_state, event)
+
+      {:ok, event_log} = EventLogs.persist(event, updated_game_state)
+
+      fiba_scoresheet = fiba_scoresheet_fixture(game_id: event_log.game_id)
+
+      fiba_scoresheet =
+        FibaScoresheetManager.update_info(fiba_scoresheet, %{
+          fiba_scoresheet.info
+          | ended_periods: [1]
+        })
+
+      result_scoresheet = EndPeriodProcessor.process(event_log, fiba_scoresheet)
+
+      assert result_scoresheet.info.ended_periods == [1]
     end
   end
 end

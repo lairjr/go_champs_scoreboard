@@ -268,7 +268,8 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet do
             initial_period_time: integer() | nil,
             game_report: String.t() | nil,
             web_url: String.t() | nil,
-            sponsors: [sponsor()]
+            sponsors: [sponsor()],
+            ended_periods: [integer()]
           }
 
     defstruct [
@@ -287,7 +288,8 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet do
       :initial_period_time,
       :game_report,
       :web_url,
-      :sponsors
+      :sponsors,
+      ended_periods: []
     ]
   end
 

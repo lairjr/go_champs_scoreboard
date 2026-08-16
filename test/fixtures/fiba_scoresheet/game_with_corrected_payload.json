@@ -160,6 +160,7 @@
     "location": "",
     "initial_period_time": 0,
     "game_report": "",
+    "ended_periods": [],
     "datetime": "2025-01-01T12:00:00Z",
     "city": "",
     "actual_start_datetime": null,

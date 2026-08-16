@@ -209,12 +209,12 @@ function UnusedCell({ color = BLUE }: { color?: string }) {
 function PeriodCell({
   period,
   points,
-  isGameEnded,
+  isPeriodEnded,
   firstPlayedPeriod,
 }: {
   period: number;
   points: number | undefined;
-  isGameEnded: boolean;
+  isPeriodEnded: boolean;
   firstPlayedPeriod: number;
 }) {
   const hasEnteredByPeriod = !!firstPlayedPeriod && firstPlayedPeriod <= period;
@@ -224,9 +224,9 @@ function PeriodCell({
       {points ? (
         <Text style={textColorForPeriod(period)}>{points}</Text>
       ) : hasEnteredByPeriod ? (
-        isGameEnded && <Text style={textColorForPeriod(period)}>0</Text>
+        isPeriodEnded && <Text style={textColorForPeriod(period)}>0</Text>
       ) : (
-        isGameEnded && <UnusedCell color={colorForPeriod(period)} />
+        isPeriodEnded && <UnusedCell color={colorForPeriod(period)} />
       )}
     </View>
   );
@@ -236,11 +236,13 @@ function PlayerRow({
   player,
   team,
   isGameEnded,
+  endedPeriods,
   hasExtraPeriod,
 }: {
   player: Player;
   team: Team;
   isGameEnded: boolean;
+  endedPeriods: number[];
   hasExtraPeriod: boolean;
 }) {
   const summary = team.points_summary?.[player.number];
@@ -256,7 +258,7 @@ function PlayerRow({
           key={period}
           period={period}
           points={summary?.points_per_period?.[period]}
-          isGameEnded={isGameEnded}
+          isPeriodEnded={isGameEnded || endedPeriods.includes(period)}
           firstPlayedPeriod={player.first_played_period}
         />
       ))}
@@ -288,10 +290,12 @@ function PointsSummaryTable({
   type,
   team,
   isGameEnded,
+  endedPeriods,
 }: {
   type: 'A' | 'B';
   team: Team;
   isGameEnded: boolean;
+  endedPeriods: number[];
 }) {
   const { t } = useTranslation();
   const sortedPlayers = [...team.players].sort((a, b) => a.number - b.number);
@@ -352,6 +356,7 @@ function PointsSummaryTable({
           player={player}
           team={team}
           isGameEnded={isGameEnded}
+          endedPeriods={endedPeriods}
           hasExtraPeriod={hasExtraPeriod}
         />
       ))}
@@ -403,11 +408,13 @@ function PointsSummaryPage({ scoresheetData }: PointsSummaryPageProps) {
           type="A"
           team={scoresheetData.team_a}
           isGameEnded={isGameEnded}
+          endedPeriods={scoresheetData.info.ended_periods || []}
         />
         <PointsSummaryTable
           type="B"
           team={scoresheetData.team_b}
           isGameEnded={isGameEnded}
+          endedPeriods={scoresheetData.info.ended_periods || []}
         />
       </View>
     </Page>
