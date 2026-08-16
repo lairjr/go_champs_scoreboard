@@ -3,7 +3,10 @@ import { GameClockState, LiveState, TeamState } from '../../types';
 import { invokeButtonClickRef } from '../../shared/invokeButtonClick';
 import { formatTime } from '../../shared/contentHelpers';
 import { useTranslation } from '../../hooks/useTranslation';
-import { isClockButtonsDisabled } from './clockControlsHelpers';
+import {
+  isClockButtonsDisabled,
+  isStartOfPeriod,
+} from './clockControlsHelpers';
 
 interface ClockControlsProps {
   away_team: TeamState;
@@ -236,6 +239,8 @@ function InGameClockControls({
     samePeriodAsLastAction &&
     clock_state.time + 60 >= clock_state.last_action_time!;
 
+  const isForwardBlocked = isStartOfPeriod(clock_state);
+
   return (
     <div className="columns is-multiline">
       <div className="column is-4">
@@ -306,7 +311,7 @@ function InGameClockControls({
           label=">"
           tooltip={t('basketball.clock.tooltips.plusOneSecond')}
           onClick={() => clockEventHandlers.updateTime('decrement')}
-          disabled={clockButtonsDisabled}
+          disabled={clockButtonsDisabled || isForwardBlocked}
         />
       </div>
       <div className="column is-2">
@@ -314,7 +319,7 @@ function InGameClockControls({
           label=">>"
           tooltip={t('basketball.clock.tooltips.plusOneMinute')}
           onClick={() => clockEventHandlers.updateTime('decrement60')}
-          disabled={clockButtonsDisabled}
+          disabled={clockButtonsDisabled || isForwardBlocked}
         />
       </div>
 
