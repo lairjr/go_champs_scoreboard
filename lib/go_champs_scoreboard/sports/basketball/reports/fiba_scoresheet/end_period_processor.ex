@@ -22,8 +22,14 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet.EndPeriodP
       |> TeamManager.mark_score_as_last_of_period()
       |> TeamManager.mark_fouls_as_last_of_half(event_log.game_clock_period)
 
+    updated_info = %{
+      data.info
+      | ended_periods: Enum.uniq([event_log.game_clock_period | data.info.ended_periods])
+    }
+
     data
     |> FibaScoresheetManager.update_team("home", updated_home_team)
     |> FibaScoresheetManager.update_team("away", updated_away_team)
+    |> FibaScoresheetManager.update_info(updated_info)
   end
 end

@@ -61,7 +61,8 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet.FibaScores
               link: "http://sponsorb.com",
               logo_url: "/sponsor_b.png"
             }
-          ]
+          ],
+          ended_periods: []
         },
         team_a: %FibaScoresheet.Team{
           name: "Some home team",

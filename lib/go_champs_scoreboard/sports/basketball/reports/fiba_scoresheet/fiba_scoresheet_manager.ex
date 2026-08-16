@@ -52,7 +52,8 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet.FibaScores
       actual_end_datetime: game_state.clock_state.finished_at,
       initial_period_time: game_state.clock_state.initial_period_time,
       web_url: game_state.info.web_url,
-      sponsors: map_sponsors(game_state.info.sponsors)
+      sponsors: map_sponsors(game_state.info.sponsors),
+      ended_periods: []
     }
   end
 
@@ -71,6 +72,14 @@ defmodule GoChampsScoreboard.Sports.Basketball.Reports.FibaScoresheet.FibaScores
   end
 
   defp map_sponsors(_), do: []
+
+  @doc """
+  Updates the FIBA scoresheet info.
+  """
+  @spec update_info(FibaScoresheet.t(), FibaScoresheet.Info.t()) :: FibaScoresheet.t()
+  def update_info(fiba_scoresheet, updated_info) do
+    %{fiba_scoresheet | info: updated_info}
+  end
 
   @doc """
   Finds a team by its type (home or away).
