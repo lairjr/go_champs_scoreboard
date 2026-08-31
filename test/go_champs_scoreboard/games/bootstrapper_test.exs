@@ -25,6 +25,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
     @http_client GoChampsScoreboard.HTTPClientMock
     @response_body %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -101,6 +102,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
     }
     @response_body_with_coaches %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -158,6 +160,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
     }
     @response_body_with_info %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -198,6 +201,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_organization %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -243,6 +247,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_primary_colors %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -275,6 +280,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_officials %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -317,6 +323,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_referee_role %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -346,6 +353,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_invalid_officials %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -399,6 +407,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_tournament_logo_and_sponsors %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "away_team" => %{
           "name" => "Team A",
@@ -434,6 +443,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_number %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "number" => "12345",
         "away_team" => %{
@@ -450,6 +460,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_empty_number %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "number" => "",
         "away_team" => %{
@@ -466,6 +477,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
 
     @response_body_with_null_number %{
       "data" => %{
+        "meta" => %{"permissions" => ["game:operate"]},
         "id" => "game-id",
         "number" => nil,
         "away_team" => %{
@@ -713,8 +725,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
           "token"
         )
 
-      {:ok, expected_datetime, _} =
-        DateTime.from_iso8601("2023-10-01T12:00:00Z")
+      {:ok, expected_datetime, _} = DateTime.from_iso8601("2023-10-01T12:00:00Z")
 
       assert game.info.datetime == expected_datetime
       assert game.info.tournament_id == "tournament-id"
@@ -754,8 +765,7 @@ defmodule GoChampsScoreboard.Games.BootstrapperTest do
           "token"
         )
 
-      {:ok, expected_datetime, _} =
-        DateTime.from_iso8601("2023-10-01T12:00:00Z")
+      {:ok, expected_datetime, _} = DateTime.from_iso8601("2023-10-01T12:00:00Z")
 
       assert game.info.datetime == expected_datetime
       assert game.info.tournament_id == "tournament-id"

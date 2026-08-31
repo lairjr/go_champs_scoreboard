@@ -29,7 +29,7 @@ defmodule GoChampsScoreboard.Games.Bootstrapper do
   end
 
   def bootstrap_from_go_champs(game, game_id, token) do
-    with {:ok, game_response} <- ApiClient.get_game(game_id, token),
+    with {:ok, game_response} <- ApiClient.get_game_for_operation(game_id, token),
          {:ok, view_settings_response} <- ApiClient.get_scoreboard_setting(game_id) do
       game
       |> map_game_response_to_game(game_response, view_settings_response)
