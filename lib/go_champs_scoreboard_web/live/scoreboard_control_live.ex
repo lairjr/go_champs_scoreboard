@@ -376,7 +376,7 @@ defmodule GoChampsScoreboardWeb.ScoreboardControlLive do
   def handle_params(%{"game_id" => game_id}, _url, socket) do
     api_token = socket.assigns.api_token
 
-    case ApiClient.get_game(game_id, api_token) do
+    case ApiClient.get_game_for_operation(game_id, api_token) do
       {:error, reason} ->
         Logger.error("Failed to fetch game state: #{inspect(reason)}")
 

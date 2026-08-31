@@ -311,6 +311,7 @@ defmodule GoChampsScoreboard.Games.GamesTest do
     response_body = %{
       "data" => %{
         "id" => game_id,
+        "meta" => %{"permissions" => ["game:operate"]},
         "away_team" => %{
           "name" => away_team_name
         },
