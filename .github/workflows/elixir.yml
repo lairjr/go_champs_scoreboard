@@ -58,6 +58,20 @@ jobs:
       - name: Run Lint
         run: mix format --check-formatted
 
+  rabbitmq-definitions:
+    name: RabbitMQ definitions in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare the vendored copy against go-champs-local-infra
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/definitions.json" \
+            https://raw.githubusercontent.com/go-champs-org/go-champs-local-infra/main/rabbitmq/definitions.json
+          if ! diff -u "$RUNNER_TEMP/definitions.json" priv/rabbitmq/definitions.json; then
+            echo "::error file=priv/rabbitmq/definitions.json::Diverged from go-champs-local-infra. Re-vendor it: the source of truth is rabbitmq/definitions.json there, never this copy."
+            exit 1
+          fi
+
   test:
     name: Build and test
     runs-on: ubuntu-latest
@@ -77,6 +91,22 @@ jobs:
         ports:
           # Maps tcp port 5432 on service container to the host
           - 5432:5432
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        env:
+          # `guest` only authenticates over loopback, and a service container is
+          # not loopback from the runner's point of view, so the topology run
+          # below needs a user of its own. These are the same credentials
+          # config/config.exs already defaults to.
+          RABBITMQ_DEFAULT_USER: local_user
+          RABBITMQ_DEFAULT_PASS: local_pass
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5672:5672
     steps:
       - uses: actions/checkout@v4
       - name: Set up Elixir
@@ -110,10 +140,18 @@ jobs:
           DATABASE_PASSWORD: postgres
           DATABASE_NAME: go_champs_scoreboard_test
           DATABASE_HOST: localhost
+      # The application refuses to boot against a broker missing the objects it
+      # publishes to, so CI applies the topology exactly the way a deploy does.
+      # This also covers the empty-broker case on every run.
+      - name: Declare RabbitMQ topology
+        run: MIX_ENV=test mix rabbitmq.declare
+        env:
+          RABBIT_MQ_HOST: localhost
       - name: Run tests
         run: mix test
         env:
           REDIS_URL: 127.0.0.1
+          RABBIT_MQ_HOST: localhost
           DATABASE_USERNAME: postgres
           DATABASE_PASSWORD: postgres
           DATABASE_NAME: go_champs_scoreboard_test

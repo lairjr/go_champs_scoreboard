@@ -17,6 +17,7 @@ services:
     # Connect to both networks to access db and shared RabbitMQ
     networks:
       - default
+      - go-champs-shared-network
 
     # Expose ports for the Phoenix app
     ports:
@@ -49,3 +50,10 @@ services:
 volumes:
   postgres-data:
   vscode-extension:
+
+networks:
+  # Created once with `docker network create go-champs-shared-network`, and
+  # shared with go-champs-local-infra's broker. The application refuses to boot
+  # without it, so the devcontainer has to be able to reach it.
+  go-champs-shared-network:
+    external: true

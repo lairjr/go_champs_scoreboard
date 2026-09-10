@@ -2,24 +2,15 @@ defmodule GoChampsScoreboard.Infrastructure.RabbitMQ do
   use GenServer
   require Logger
 
+  alias GoChampsScoreboard.Infrastructure.RabbitMQ.Topology
+
   @exchange "game-events"
-  @dead_letter_exchange "dead-letter-exchange"
-  @retry_exchange "retry-exchange"
 
-  # Main queues for game events
-  @queue_game_events "game-events"
-  @queue_live_mode "game-events-live-mode"
-  @queue_stats "game-events-stats"
-  @queue_dead_letter "dead-letter"
-
-  # Retry queues for live-mode (no delays, handled by consumer)
-  @retry_queues [
-    "game-events-live-mode-retry-1",
-    "game-events-live-mode-retry-2",
-    "game-events-live-mode-retry-3",
-    "game-events-live-mode-retry-4",
-    "game-events-live-mode-retry-5"
-  ]
+  # The only object this application touches: it publishes here and consumes
+  # nothing. The queues bound to this exchange belong to their own consumers, so
+  # a missing consumer queue must not keep the scoreboard from booting —
+  # `mandatory: true` on publish is what catches a message that would go nowhere.
+  @required_objects [exchange: @exchange]
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
@@ -33,12 +24,7 @@ defmodule GoChampsScoreboard.Infrastructure.RabbitMQ do
       {:ok, conn} ->
         case AMQP.Channel.open(conn) do
           {:ok, chan} ->
-            Logger.info("Connected to RabbitMQ")
-
-            setup(chan)
-            setup_retry_queues(chan)
-
-            {:ok, %{channel: chan}}
+            verify_topology(chan)
 
           {:error, reason} ->
             Logger.error("Failed to open channel: #{inspect(reason)}")
@@ -47,7 +33,7 @@ defmodule GoChampsScoreboard.Infrastructure.RabbitMQ do
 
       {:error, reason} ->
         Logger.error("Failed to open connection: #{inspect(reason)}")
-        {:ok, reason}
+        {:stop, reason}
     end
   end
 
@@ -66,7 +52,10 @@ defmodule GoChampsScoreboard.Infrastructure.RabbitMQ do
       routing_key: routing_key
     )
 
-    AMQP.Basic.publish(chan, @exchange, routing_key, message)
+    # `mandatory` makes the broker hand back anything it cannot route instead of
+    # dropping it, which is the only evidence we get that the bindings the
+    # topology declared are the ones this routing key actually needs.
+    AMQP.Basic.publish(chan, @exchange, routing_key, message, mandatory: true)
     {:reply, :ok, state}
   end
 
@@ -76,59 +65,42 @@ defmodule GoChampsScoreboard.Infrastructure.RabbitMQ do
     {:reply, :ok, state}
   end
 
-  defp setup(chan) do
-    # Declare exchanges
-    AMQP.Exchange.declare(chan, @exchange, :topic)
-    AMQP.Exchange.declare(chan, @dead_letter_exchange, :topic)
-
-    # Declare queues with dead-lettering
-    AMQP.Queue.declare(chan, @queue_dead_letter, durable: true)
-
-    AMQP.Queue.declare(chan, @queue_game_events, durable: true)
-
-    # Live mode queue with retry mechanism
-    AMQP.Queue.declare(chan, @queue_live_mode,
-      durable: true,
-      arguments: [
-        {"x-dead-letter-exchange", :longstr, @dead_letter_exchange}
-      ]
+  @impl true
+  def handle_info(
+        {:basic_return, payload, %{exchange: exchange, routing_key: routing_key}},
+        state
+      ) do
+    Logger.error("RabbitMQ could not route a published message",
+      exchange: exchange,
+      routing_key: routing_key,
+      message: payload
     )
 
-    AMQP.Queue.declare(chan, @queue_stats, durable: true)
-
-    # Bind queues to exchanges with routing keys
-    AMQP.Queue.bind(chan, @queue_game_events, @exchange, routing_key: "game-events.*")
-    AMQP.Queue.bind(chan, @queue_live_mode, @exchange, routing_key: "game-events.live-mode")
-    AMQP.Queue.bind(chan, @queue_stats, @exchange, routing_key: "game-events.player-stats")
-    AMQP.Queue.bind(chan, @queue_stats, @exchange, routing_key: "game-events.team-stats")
-
-    # Bind dead letter queue
-    AMQP.Queue.bind(chan, @queue_dead_letter, @dead_letter_exchange, routing_key: "#")
-
-    Logger.info("RabbitMQ setup completed")
+    {:noreply, state}
   end
 
-  defp setup_retry_queues(chan) do
-    # Declare retry exchange
-    AMQP.Exchange.declare(chan, @retry_exchange, :direct, durable: true)
+  def handle_info(msg, state) do
+    Logger.warning("Unhandled info: #{inspect(msg)}")
+    {:noreply, state}
+  end
 
-    # Setup each retry queue
-    Enum.each(@retry_queues, fn retry_queue ->
-      AMQP.Queue.declare(
-        chan,
-        retry_queue,
-        durable: true,
-        arguments: [
-          # When message expires, send it back to main queue
-          {"x-dead-letter-exchange", :longstr, ""},
-          {"x-dead-letter-routing-key", :longstr, @queue_live_mode}
-        ]
-      )
+  # The topology is applied by `mix rabbitmq.declare` in the release phase, from
+  # the same file this check reads. Here we only assert, so that an application
+  # never runs against a broker that is missing what it publishes to.
+  defp verify_topology(chan) do
+    case Topology.verify(chan, @required_objects) do
+      :ok ->
+        Logger.info("Connected to RabbitMQ")
+        AMQP.Basic.return(chan, self())
+        {:ok, %{channel: chan}}
 
-      # Bind retry queue to retry exchange
-      AMQP.Queue.bind(chan, retry_queue, @retry_exchange, routing_key: retry_queue)
-    end)
+      {:error, {object, reason}} ->
+        Logger.error(
+          "RabbitMQ is missing #{object}: #{inspect(reason)}. " <>
+            "Apply the topology with `mix rabbitmq.declare`."
+        )
 
-    Logger.info("RabbitMQ retry queues setup completed")
+        {:stop, {:missing_topology, object}}
+    end
   end
 end
