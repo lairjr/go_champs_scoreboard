@@ -40,10 +40,17 @@ The file is applied over AMQP, never through the management API: an import needs
 the `administrator` tag that the CloudAMQP user does not have, and it returns
 `204 success` even when the broker disagrees with what was imported.
 
-**In every deployed environment**, the release phase runs `mix rabbitmq.declare`
-(see `Procfile`), which declares every exchange, queue and binding in the file.
+**In every deployed environment**, the release phase runs
+`mix rabbitmq.migrate.exchange_durability` and then `mix rabbitmq.declare` (see
+`Procfile`). The declare applies every exchange, queue and binding in the file.
 It is idempotent, so all three services can run it on every deploy, and it fails
 the deploy with the object named when the broker disagrees with the file.
+
+The migration ahead of it covers the one property a declare cannot change in
+place: an exchange that already exists as non-durable is deleted so the declare
+recreates it durable, along with the bindings the deletion drops. It only ever
+deletes an exchange it has confirmed is non-durable, and prints that it had
+nothing to do once every environment has run it.
 
 **At boot**, the application passively asserts the objects it publishes to and
 refuses to start when one is missing — the log names it. Publishes go out with

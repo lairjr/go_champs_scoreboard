@@ -27,7 +27,7 @@ defmodule GoChampsScoreboard.Infrastructure.RabbitMQ.Topology do
 
   require Logger
 
-  alias AMQP.{Channel, Exchange, Queue}
+  alias AMQP.{Channel, Connection, Exchange, Queue}
 
   @definitions_path ["priv", "rabbitmq", "definitions.json"]
 
@@ -79,6 +79,99 @@ defmodule GoChampsScoreboard.Infrastructure.RabbitMQ.Topology do
   @spec verify(Channel.t(), [object()]) :: :ok | failure()
   def verify(%Channel{} = chan, objects) do
     each(objects, &verify_one(chan, &1))
+  end
+
+  @doc """
+  Deletes every exchange the broker still holds as non-durable that the file
+  marks durable, so that a following `declare_all/1` recreates it durable and
+  restores its bindings.
+
+  This exists because `game-events` and `dead-letter-exchange` were declared
+  without `durable: true` for years. An exchange's durability cannot be changed
+  in place — the only way across is to delete and recreate — and that drops
+  every binding on it, which is why the declare has to run right after.
+
+  It is narrow on purpose. An exchange is deleted only after a probe confirms
+  the broker holds a **non-durable** one of that name: an object the broker
+  itself would have discarded at its next restart. Anything else — already
+  durable, missing, or disagreeing in some other way — is left alone for
+  `declare_all/1` to create or to fail on.
+
+  Takes a connection rather than a channel because each probe may be refused,
+  and a refused declare closes the channel it ran on.
+  """
+  @spec recreate_non_durable_exchanges(Connection.t()) :: {:ok, [String.t()]} | failure()
+  def recreate_non_durable_exchanges(%Connection{} = conn) do
+    load!()["exchanges"]
+    |> Enum.filter(&Map.get(&1, "durable", false))
+    |> Enum.reduce_while({:ok, []}, fn exchange, {:ok, recreated} ->
+      case recreate_if_non_durable(conn, exchange) do
+        {:ok, nil} -> {:cont, {:ok, recreated}}
+        {:ok, name} -> {:cont, {:ok, [name | recreated]}}
+        failure -> {:halt, failure}
+      end
+    end)
+    |> case do
+      {:ok, recreated} -> {:ok, Enum.reverse(recreated)}
+      failure -> failure
+    end
+  end
+
+  defp recreate_if_non_durable(conn, %{"name" => name} = exchange) do
+    with :ok <- probe(conn, &Exchange.declare(&1, name, :direct, passive: true)),
+         :ok <- probe(conn, &declare_exchange_as(&1, exchange, false)) do
+      case run("exchange #{name}", fn ->
+             {:ok, chan} = Channel.open(conn)
+
+             try do
+               Exchange.delete(chan, name)
+             after
+               close(chan)
+             end
+           end) do
+        :ok -> {:ok, name}
+        failure -> failure
+      end
+    else
+      # Missing, already durable, or disagreeing in some other way. Either way
+      # this is not a durability migration, so `declare_all/1` owns it.
+      :refused -> {:ok, nil}
+    end
+  end
+
+  defp declare_exchange_as(chan, exchange, durable) do
+    Exchange.declare(chan, exchange["name"], exchange_type(exchange["name"], exchange["type"]),
+      durable: durable,
+      auto_delete: Map.get(exchange, "auto_delete", false),
+      internal: Map.get(exchange, "internal", false),
+      arguments: arguments(exchange["name"], exchange["arguments"])
+    )
+  end
+
+  # Runs one declare on a channel of its own and reports only whether the broker
+  # accepted it. Unlike `run/2` a refusal is an expected answer here, not a
+  # failure — it is how the broker is asked what it already holds.
+  defp probe(conn, fun) do
+    {:ok, chan} = Channel.open(conn)
+
+    try do
+      case fun.(chan) do
+        :ok -> :ok
+        {:ok, _} -> :ok
+        {:error, _} -> :refused
+      end
+    catch
+      :exit, _ -> :refused
+    after
+      close(chan)
+    end
+  end
+
+  defp close(chan) do
+    if Process.alive?(chan.pid), do: Channel.close(chan)
+    :ok
+  catch
+    :exit, _ -> :ok
   end
 
   defp verify_one(chan, {:exchange, name}) do
