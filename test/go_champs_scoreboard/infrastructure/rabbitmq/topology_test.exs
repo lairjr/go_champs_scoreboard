@@ -50,6 +50,16 @@ defmodule GoChampsScoreboard.Infrastructure.RabbitMQ.TopologyTest do
       end
     end
 
+    test "every exchange is durable", %{definitions: definitions} do
+      # game-events and dead-letter-exchange were transient for years, so a
+      # broker restart dropped them and every binding on them. Going back is a
+      # delete-and-recreate migration, not an edit — see
+      # `Mix.Tasks.Rabbitmq.Migrate.ExchangeDurability`.
+      for exchange <- definitions["exchanges"] do
+        assert exchange["durable"], "exchange #{exchange["name"]} is not durable"
+      end
+    end
+
     test "the live-mode queue still dead-letters", %{definitions: definitions} do
       live_mode = Enum.find(definitions["queues"], &(&1["name"] == "game-events-live-mode"))
 
