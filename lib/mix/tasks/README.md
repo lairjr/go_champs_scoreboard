@@ -76,6 +76,24 @@ mix rabbitmq.declare
 - Fails, naming the object, when the broker disagrees with the file — a differing argument or a `durable` flag flipped by hand answers `PRECONDITION_FAILED`, and the deploy stops there. Objects listed before it in the file are already declared; re-running after the disagreement is settled is safe.
 - Deliberately does **not** start the application. The app verifies the topology at boot and refuses to start when it is missing, so starting it here would deadlock the run that is supposed to create it.
 
+### 3. RabbitMQ Exchange Durability Migration (`mix rabbitmq.migrate.exchange_durability`)
+
+Deletes every exchange the broker still holds as **non-durable** that `priv/rabbitmq/definitions.json` marks durable, so the `mix rabbitmq.declare` that follows recreates it durable and restores its bindings.
+
+**Usage:**
+```bash
+mix rabbitmq.migrate.exchange_durability
+```
+
+**Arguments:** none. Same connection variables as `mix rabbitmq.declare`.
+
+**What it does:**
+- Runs immediately **before** `mix rabbitmq.declare` in the release phase (see `Procfile`). The two belong together: deleting an exchange drops every binding on it, and the declare is what puts them back.
+- Exists because `game-events` and `dead-letter-exchange` were declared without `durable: true` for years, so every broker restart dropped both and all their bindings. The application quietly recreated them on its next boot — and that silent repair disappeared when it started asserting the topology instead of declaring it. Durability cannot be changed in place; delete and recreate is the only way across.
+- Deletes an exchange only after probing the broker and confirming it holds a **non-durable** one of that name — an object the broker would have discarded at its next restart anyway, dropping the same bindings. Everything else falls through to `mix rabbitmq.declare`: already durable, missing, or disagreeing some other way.
+- Is idempotent. The first deploy after this lands migrates; every deploy after it prints `No non-durable exchanges to migrate.`
+- Does **not** make messages survive a restart. That needs `persistent: true` on publish, tracked separately.
+
 ## Adding a New Task
 
 - Add the task module under `lib/mix/tasks/`, named `Mix.Tasks.<Namespace>.<Action>` (e.g. `Mix.Tasks.FibaScoresheet.ExportGame`), which maps to the CLI invocation `mix <namespace>.<action>`.
