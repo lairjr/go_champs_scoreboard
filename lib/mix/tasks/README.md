@@ -58,6 +58,24 @@ mix fiba_scoresheet.export_game <game_id> <output_name>
 
 The exported file is already anonymized and safe to share — a quick manual look before sharing is still good practice to confirm nothing unexpected slipped through.
 
+### 2. RabbitMQ Topology Declare (`mix rabbitmq.declare`)
+
+Declares every exchange, queue and binding described by `priv/rabbitmq/definitions.json` over AMQP.
+
+**Usage:**
+```bash
+mix rabbitmq.declare
+```
+
+**Arguments:** none. The broker comes from `RABBIT_MQ_HOST`, `RABBIT_MQ_PORT`, `RABBIT_MQ_USERNAME`, `RABBIT_MQ_PASSWORD` and `RABBIT_MQ_VHOST`.
+
+**What it does:**
+- Applies the shared platform topology (see the [RabbitMQ topology](../../../README.md#rabbitmq-topology) section) from the vendored copy of the file that `go-champs-local-infra` owns.
+- Runs in the Heroku **release phase** on every deploy (see `Procfile`), so no environment needs a manual step and no application needs management credentials.
+- Is idempotent. Against a broker that already matches the file it changes nothing, which is why all three services can run it on every deploy and the deploy order stops mattering.
+- Fails, naming the object, when the broker disagrees with the file — a differing argument or a `durable` flag flipped by hand answers `PRECONDITION_FAILED`, and the deploy stops there. Objects listed before it in the file are already declared; re-running after the disagreement is settled is safe.
+- Deliberately does **not** start the application. The app verifies the topology at boot and refuses to start when it is missing, so starting it here would deadlock the run that is supposed to create it.
+
 ## Adding a New Task
 
 - Add the task module under `lib/mix/tasks/`, named `Mix.Tasks.<Namespace>.<Action>` (e.g. `Mix.Tasks.FibaScoresheet.ExportGame`), which maps to the CLI invocation `mix <namespace>.<action>`.

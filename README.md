@@ -21,11 +21,46 @@ A real-time scoreboard application built with Phoenix LiveView for managing and 
 To start your Phoenix server:
 
 - Run `mix setup` to install and setup dependencies
+- Bring up the shared RabbitMQ broker (see [RabbitMQ topology](#rabbitmq-topology) below)
 - Start Phoenix endpoint with `mix phx.server` or inside IEx with `iex -S mix phx.server`
 
 Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 
 Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
+
+## RabbitMQ topology
+
+`priv/rabbitmq/definitions.json` is a verbatim copy of `rabbitmq/definitions.json`
+in [go-champs-local-infra](https://github.com/go-champs-org/go-champs-local-infra),
+which is the source of truth for every environment. Never edit the copy — change
+it there, re-vendor it here, and open both pull requests. CI fails the build when
+the two diverge.
+
+The file is applied over AMQP, never through the management API: an import needs
+the `administrator` tag that the CloudAMQP user does not have, and it returns
+`204 success` even when the broker disagrees with what was imported.
+
+**In every deployed environment**, the release phase runs `mix rabbitmq.declare`
+(see `Procfile`), which declares every exchange, queue and binding in the file.
+It is idempotent, so all three services can run it on every deploy, and it fails
+the deploy with the object named when the broker disagrees with the file.
+
+**At boot**, the application passively asserts the objects it publishes to and
+refuses to start when one is missing — the log names it. Publishes go out with
+`mandatory: true`, so a message the broker cannot route comes back and is logged
+instead of vanishing.
+
+**Locally**, the broker is a prerequisite: the application will not boot without
+it, and neither will `mix test`. It runs in `go-champs-local-infra`:
+
+```bash
+docker network create go-champs-shared-network   # once
+cd ../go-champs-local-infra && make start
+```
+
+The devcontainer joins `go-champs-shared-network` to reach it, so rebuild the
+container if it was created before that network was added to
+`.devcontainer/docker-compose.yml`.
 
 ## Learn more
 
